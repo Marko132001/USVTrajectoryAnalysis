@@ -5,8 +5,7 @@ setwd('~/lokacije/USV_navigation')
 library(trajr)
 
 convert_ros2_to_trajr_time = function(ros2_timestamps) {
-  # Convert nanoseconds to seconds
-  #timestamps_sec = as.numeric(ros2_timestamps) / 1e9
+
   timestamps_sec = ros2_timestamps
   
   # Normalize so first timestamp is 0
@@ -53,6 +52,7 @@ calculate_trajectory_params = function(trajectory, visualize = FALSE) {
   
   fractal_dimension = TrajFractalDimension(trajectory, stepSizes = step_sizes)
   
+  
   if (visualize) {
     plot(trajectory, main = "Trajectory")
     cat("Total length of the trajectory:", traj_length, "meters \n")
@@ -71,6 +71,59 @@ calculate_trajectory_params = function(trajectory, visualize = FALSE) {
        durationOfTravel = traj_duration,
        fractalDimension = fractal_dimension
   )
+}
+
+plot_trajectory_stats = function(stats_column, ylabel, title, alpha_threshold) {
+  # Calculate the significance threshold
+  ref_value = stats_column[1]
+  
+  upper_thresh_value = ref_value + ref_value*alpha_threshold
+  lower_thresh_value = ref_value - ref_value*alpha_threshold
+  
+  lower_lim = min(lower_thresh_value, min(stats_column))
+  upper_lim = max(upper_thresh_value, max(stats_column))
+  
+  cat("Alpha: ", alpha_threshold, ", Lower bound: ", lower_lim, ", Upper bound: ", upper_lim, "\n")
+  
+  # Plot trajectory parameter with significance thresholds
+  plot.new()
+  par(mar = c(8, 4, 4, 2) + 0.1)  # Increase bottom margin
+  
+  grid(nx = NULL, ny = NULL,
+       lty = 1,
+       col = "gray",
+       lwd = 1)
+  
+  par(new = TRUE)
+  
+  plot(1:length(stats_column), 
+       stats_column, 
+       xaxt = "n",
+       xlab = "", ylab = ylabel, main=title,
+       pch=19, col="blue",cex=1.5, ylim=c(lower_lim, upper_lim))
+
+  abline(h=c(lower_thresh_value, upper_thresh_value), col=c("red", "red"), lty=c(2,2))
+  
+  axis(1, at = 1:length(stats_column), 
+       labels = c("Planned", "Low waves", "Medium waves", "High waves", "Slow wind", "Medium wind", "Strong wind"), 
+       las = 2)  # Rotate labels vertically
+  
+
+}
+
+customPcaPlot <- function(x, xlabs, xcols, choices = 1L:2L, ycol = "#ff2222aa", ...) {
+  # Draw points
+  pts <- t(t(x$x[, choices]))
+  plot(pts, type = "p", 
+       xlim = extendrange(pts[, 1L]), ylim = extendrange(pts[, 2L]), 
+       asp = 1,
+       xlab = "PC1", ylab = "PC2", pch = 16, col = xcols, ..., main="PCA of trajectory parameters")
+  text(pts, labels = xlabs, pos = 1, ...)
+  
+  # Draw arrows
+  axs <- t(t(x$rotation[, choices])) * 1.5
+  text(axs, labels = dimnames(axs)[[1L]], col = ycol, ...)
+  arrows(0, 0, axs[, 1L] * .8, axs[, 2L] * .8, length = .1, col = ycol)
 }
 
 # Trajectory simulation parameters
@@ -92,20 +145,6 @@ calculate_trajectory_params = function(trajectory, visualize = FALSE) {
 # medium_wind    2.5       240       0.0       0.0001
 # strong_wind    5         240       0.0       0.0001
 #####################################################
-
-# Zadaci
-#####################################################
-# Q: Usporediti parametre planirane i stvarne putanje. 
-# Statističkim testom odrediti statističku značajnost eventualne razlike.
-# A: Koristiti z-test ili nekakav thresholding (alpha = 0.05) za
-#   pojedinačne vrijednosti.
-#
-# Q: Prikazati razlike u dobivenim vrijednostima parametera putanje,
-#     ovisno o pojedinačnim parametrima stanja okoliša.
-# A: Usporedba parametara svake putanje sa parametrima planirane putanje.
-#     Rezultate prikazati grafički.
-#####################################################
-
 
 # Load trajectory data
 
@@ -148,7 +187,17 @@ stats = TrajsMergeStats(trajs, calculate_trajectory_params)
 rownames(stats) = traj_names
 print(stats)
 
+# Plot trajectory stats with defined statistical significance
+alpha_threshold = 0.05
+plot_trajectory_stats(stats$meanTravelSpeed, "Mean Travel Speed [m/s]", "Mean Travel Speed comparison", alpha_threshold)
+plot_trajectory_stats(stats$straightness, "Straightness Index[0, 1]", "Straightness comparison", alpha_threshold)
+plot_trajectory_stats(stats$diffusionDistance, "Diffusion Distance [m]", "Diffusion Distance comparison", alpha_threshold)
+plot_trajectory_stats(stats$trajectoryLength, "Trajectory Length [m]", "Trajectory Length comparison", alpha_threshold)
+plot_trajectory_stats(stats$durationOfTravel, "Time [s]", "Duration of Travel comparison", alpha_threshold)
+plot_trajectory_stats(stats$fractalDimension, "FractalDimension [1, 2]", "Fractal Dimension comparison", alpha_threshold)
 
+PCA <- prcomp(stats, scale. = TRUE)
+customPcaPlot(PCA, traj_names, c('red', 'blue', 'green', 'orange', 'purple','black', 'cyan'), cex = .8)
 
 
 
