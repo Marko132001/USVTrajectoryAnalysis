@@ -48,7 +48,7 @@ calculate_trajectory_params = function(trajectory, visualize = FALSE) {
   straightness = TrajStraightness(trajectory)
   
   # Fractal dimension ([1, 2], 1 - straight line, 2 - infinitely variable curve)
-  step_sizes = TrajLogSequence(1.0, 10.0, 15)
+  step_sizes = TrajLogSequence(1.0, 70.0, 30)
   
   fractal_dimension = TrajFractalDimension(trajectory, stepSizes = step_sizes)
   
@@ -83,7 +83,7 @@ plot_trajectory_stats = function(stats_column, ylabel, title, alpha_threshold) {
   lower_lim = min(lower_thresh_value, min(stats_column))
   upper_lim = max(upper_thresh_value, max(stats_column))
   
-  cat("Alpha: ", alpha_threshold, ", Lower bound: ", lower_lim, ", Upper bound: ", upper_lim, "\n")
+  cat("Alpha: ", alpha_threshold, ", Lower bound: ", lower_thresh_value, ", Upper bound: ", upper_thresh_value, "\n")
   
   # Plot trajectory parameter with significance thresholds
   plot.new()
@@ -111,40 +111,6 @@ plot_trajectory_stats = function(stats_column, ylabel, title, alpha_threshold) {
 
 }
 
-customPcaPlot <- function(x, xlabs, xcols, choices = 1L:2L, ycol = "#ff2222aa", ...) {
-  # Draw points
-  pts <- t(t(x$x[, choices]))
-  plot(pts, type = "p", 
-       xlim = extendrange(pts[, 1L]), ylim = extendrange(pts[, 2L]), 
-       asp = 1,
-       xlab = "PC1", ylab = "PC2", pch = 16, col = xcols, ..., main="PCA of trajectory parameters")
-  text(pts, labels = xlabs, pos = 1, ...)
-  
-  # Draw arrows
-  axs <- t(t(x$rotation[, choices])) * 1.5
-  text(axs, labels = dimnames(axs)[[1L]], col = ycol, ...)
-  arrows(0, 0, axs[, 1L] * .8, axs[, 2L] * .8, length = .1, col = ycol)
-}
-
-# Trajectory simulation parameters
-#####################################################
-# Constants:
-#   - wind_vel_std = 0.5
-#   - wind_direction = 240° (vessel will be pushed in the SW direction )
-#   - wave_direction = 0°
-#   - wave_gain = 1.0
-#
-# Wind trajectories are variable based on wind velocity [m/s]
-# Wave trajectories are variable based on wave period [s]
-#
-#             Wind_vel Wind_dir Wave_gain Wave_period
-# low_waves      /         /         1.0       4
-# medium_waves   /         /         1.0       7
-# high_waves     /         /         1.0       10
-# slow_wind       1         240       0.0       0.0001
-# medium_wind    2.5       240       0.0       0.0001
-# strong_wind    5         240       0.0       0.0001
-#####################################################
 
 # Load trajectory data
 
@@ -190,16 +156,11 @@ print(stats)
 # Plot trajectory stats with defined statistical significance
 alpha_threshold = 0.05
 plot_trajectory_stats(stats$meanTravelSpeed, "Mean Travel Speed [m/s]", "Mean Travel Speed comparison", alpha_threshold)
-plot_trajectory_stats(stats$straightness, "Straightness Index[0, 1]", "Straightness comparison", alpha_threshold)
+plot_trajectory_stats(stats$straightness, "Straightness Index [0, 1]", "Straightness comparison", alpha_threshold)
 plot_trajectory_stats(stats$diffusionDistance, "Diffusion Distance [m]", "Diffusion Distance comparison", alpha_threshold)
 plot_trajectory_stats(stats$trajectoryLength, "Trajectory Length [m]", "Trajectory Length comparison", alpha_threshold)
 plot_trajectory_stats(stats$durationOfTravel, "Time [s]", "Duration of Travel comparison", alpha_threshold)
 plot_trajectory_stats(stats$fractalDimension, "FractalDimension [1, 2]", "Fractal Dimension comparison", alpha_threshold)
-
-PCA <- prcomp(stats, scale. = TRUE)
-customPcaPlot(PCA, traj_names, c('red', 'blue', 'green', 'orange', 'purple','black', 'cyan'), cex = .8)
-
-
 
 
 
